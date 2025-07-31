@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "WebFetch(domain:kernc.github.io)",
+      "WebFetch(domain:kernc.github.io)",
+      "Bash(mkdir:*)",
+      "Bash(cargo:*)"
+    ],
+    "deny": []
+  }
+}

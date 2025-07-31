@@ -1,0 +1,58 @@
+[package]
+name = "backtesting"
+version = "0.1.0"
+edition = "2021"
+authors = ["Your Name 0xnicholasy.eth@example.com"]
+description = "A Rust implementation of backtesting.py - a Python library for backtesting trading strategies"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/0xnicholasy/backtesting.rs"
+keywords = ["backtesting", "trading", "finance", "quantitative", "strategy"]
+categories = ["algorithms", "finance", "simulation"]
+
+[dependencies]
+# Core dependencies
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+chrono = { version = "0.4", features = ["serde"] }
+thiserror = "1.0"
+anyhow = "1.0"
+csv = "1.3"
+rand = "0.8"
+
+# Numerical computing
+ndarray = "0.15"
+polars = { version = "0.33", features = ["lazy", "temporal", "strings"] }
+
+# Plotting (optional)
+plotters = { version = "0.3.6", optional = true }
+
+# Optimization
+argmin = { version = "0.8", optional = true }
+
+# Parallel processing
+rayon = "1.8"
+
+[dev-dependencies]
+tokio-test = "0.4"
+criterion = "0.5"
+
+[features]
+default = ["optimization", "plotting"]
+plotting = ["plotters"]
+optimization = ["argmin"]
+
+[[bench]]
+name = "backtest_benchmark"
+harness = false
+
+[lib]
+name = "backtesting"
+path = "src/lib.rs"
+
+[[example]]
+name = "sma_crossover"
+path = "examples/sma_crossover.rs"
+
+[[example]]
+name = "buy_and_hold"
+path = "examples/buy_and_hold.rs"
