@@ -1,5 +1,6 @@
 use crate::backtest::BacktestResults;
-use crate::types::{Trade, OHLCV};
+use crate::types::OHLCV;
+use crate::Trade;
 use chrono::{DateTime, Utc};
 use plotters::coord::types::RangedCoordf64;
 use plotters::prelude::*;
@@ -33,6 +34,7 @@ impl BacktestPlotter {
         output_path: &str,
         config: PlotConfig,
     ) -> Result<(), Box<dyn std::error::Error>> {
+        let latest_price = data.last().unwrap_or(&OHLCV::default()).close;
         let root =
             BitMapBackend::new(output_path, (config.width, config.height)).into_drawing_area();
         root.fill(&WHITE)?;
@@ -61,7 +63,7 @@ impl BacktestPlotter {
 
         // Plot trades if enabled
         if config.show_trades {
-            Self::plot_trades(&mut chart, &results.trades)?;
+            Self::plot_trades(&mut chart, &results.trades, latest_price)?;
         }
 
         chart.configure_series_labels().draw()?;
@@ -96,6 +98,7 @@ impl BacktestPlotter {
             Cartesian2d<RangedDateTime<DateTime<Utc>>, RangedCoordf64>,
         >,
         trades: &[Trade],
+        last_price: f64,
     ) -> Result<(), Box<dyn std::error::Error>>
     where
         DB::ErrorType: 'static,
@@ -110,11 +113,13 @@ impl BacktestPlotter {
 
         // Plot sell points (red)
         chart
-            .draw_series(
-                trades
-                    .iter()
-                    .map(|trade| Circle::new((trade.exit_time, trade.exit_price), 3, RED.filled())),
-            )?
+            .draw_series(trades.iter().map(|trade| {
+                Circle::new(
+                    (trade.get_exit_time(), trade.get_exit_price(last_price)),
+                    3,
+                    RED.filled(),
+                )
+            }))?
             .label("Sell")
             .legend(|(x, y)| Circle::new((x + 5, y), 3, RED.filled()));
 
@@ -135,8 +140,8 @@ impl BacktestPlotter {
         let mut current_equity = 10000.0;
 
         for trade in &results.trades {
-            current_equity += trade.pnl;
-            equity_points.push((trade.exit_time, current_equity));
+            current_equity += trade.pl();
+            equity_points.push((trade.get_exit_time(), current_equity));
         }
 
         let min_equity = equity_points

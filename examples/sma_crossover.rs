@@ -1,6 +1,7 @@
 use backtesting::data::DataLoader;
 use backtesting::indicators::{Indicator, SimpleMovingAverage};
-use backtesting::types::{Order, OrderSide, OrderType, OHLCV};
+use backtesting::{Order, OrderSide, OrderType};
+use backtesting::types::OHLCV;
 use backtesting::{Backtest, BacktestConfig, Strategy};
 
 struct SMACrossover {
@@ -38,14 +39,16 @@ impl Strategy for SMACrossover {
                 // Buy signal: fast SMA crosses above slow SMA
                 if fast > slow && !self.position {
                     self.position = true;
-                    orders.push(Order {
-                        side: OrderSide::Buy,
-                        order_type: OrderType::Market,
-                        size: 100.0,
-                        limit_price: None,
-                        stop_price: None,
-                        timestamp: bar.timestamp,
-                    });
+                    orders.push(Order::new(
+                        OrderSide::Buy,
+                        OrderType::Market,
+                        100.0,
+                        None,
+                        None,
+                        None,
+                        None,
+                        None,
+                    ));
                     println!(
                         "BUY signal at {:.2} (Fast: {:.2}, Slow: {:.2})",
                         bar.close, fast, slow
@@ -54,14 +57,16 @@ impl Strategy for SMACrossover {
                 // Sell signal: fast SMA crosses below slow SMA
                 else if fast < slow && self.position {
                     self.position = false;
-                    orders.push(Order {
-                        side: OrderSide::Sell,
-                        order_type: OrderType::Market,
-                        size: 100.0,
-                        limit_price: None,
-                        stop_price: None,
-                        timestamp: bar.timestamp,
-                    });
+                    orders.push(Order::new(
+                        OrderSide::Sell,
+                        OrderType::Market,
+                        100.0,
+                        None,
+                        None,
+                        None,
+                        None,
+                        None,
+                    ));
                     println!(
                         "SELL signal at {:.2} (Fast: {:.2}, Slow: {:.2})",
                         bar.close, fast, slow

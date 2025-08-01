@@ -1,4 +1,5 @@
-use backtesting::types::{Order, OrderSide, OrderType, OHLCV};
+use backtesting::{Order, OrderSide, OrderType};
+use backtesting::types::OHLCV;
 use backtesting::{Backtest, BacktestConfig, Strategy};
 use chrono::{TimeZone, Utc};
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
@@ -21,14 +22,16 @@ impl Strategy for SimpleBuyAndHold {
     fn next(&mut self, bar: &OHLCV, _index: usize) -> backtesting::Result<Vec<Order>> {
         if !self.bought {
             self.bought = true;
-            Ok(vec![Order {
-                side: OrderSide::Buy,
-                order_type: OrderType::Market,
-                size: 100.0,
-                limit_price: None,
-                stop_price: None,
-                timestamp: bar.timestamp,
-            }])
+            Ok(vec![Order::new(
+                OrderSide::Buy,
+                OrderType::Market,
+                100.0,
+                None,
+                None,
+                None,
+                None,
+                None,
+            )])
         } else {
             Ok(vec![])
         }

@@ -6,6 +6,7 @@
         "Bollinger",
         "calmar",
         "chrono",
+        "Coordf",
         "drawdowns",
         "OHLCV",
         "sortino"

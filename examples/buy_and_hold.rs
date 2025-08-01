@@ -1,5 +1,6 @@
 use backtesting::{Backtest, Strategy, BacktestConfig};
-use backtesting::types::{OHLCV, Order, OrderType, OrderSide};
+use backtesting::{Order, OrderSide, OrderType};
+use backtesting::types::OHLCV;
 use chrono::{Utc, TimeZone};
 
 struct BuyAndHold {
@@ -23,14 +24,16 @@ impl Strategy for BuyAndHold {
             self.bought = true;
             println!("Buying at price: {:.2}", bar.close);
             
-            Ok(vec![Order {
-                side: OrderSide::Buy,
-                order_type: OrderType::Market,
-                size: 99.0, // Reduced to account for commission
-                limit_price: None,
-                stop_price: None,
-                timestamp: bar.timestamp,
-            }])
+            Ok(vec![Order::new(
+                OrderSide::Buy,
+                OrderType::Market,
+                99.0, // Reduced to account for commission
+                None,
+                None,
+                None,
+                None,
+                None,
+            )])
         } else {
             Ok(vec![])
         }

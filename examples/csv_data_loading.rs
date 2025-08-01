@@ -1,5 +1,6 @@
 use backtesting::data::DataLoader;
-use backtesting::types::{Order, OrderSide, OrderType, OHLCV};
+use backtesting::{Order, OrderSide, OrderType};
+use backtesting::types::OHLCV;
 use backtesting::{Backtest, BacktestConfig, Strategy};
 
 struct SimpleMAStrategy {
@@ -48,26 +49,30 @@ impl Strategy for SimpleMAStrategy {
                 // Calculate position size based on $10k capital - use ~95% of capital
                 let target_value = 9500.0; // 95% of $10,000 initial capital
                 let position_size = target_value / bar.close;
-                orders.push(Order {
-                    side: OrderSide::Buy,
-                    order_type: OrderType::Market,
-                    size: position_size,
-                    limit_price: None,
-                    stop_price: None,
-                    timestamp: bar.timestamp,
-                });
+                orders.push(Order::new(
+                    OrderSide::Buy,
+                    OrderType::Market,
+                    position_size,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                ));
                 println!("BUY at {:.2} (MA: {:.2}) - size: {:.2}", bar.close, ma, position_size);
             } else if bar.close < ma * 0.98 && self.position {
                 self.position = false;
                 // For sell orders, we'll sell all shares. The backtest engine will handle the actual position size
-                orders.push(Order {
-                    side: OrderSide::Sell,
-                    order_type: OrderType::Market,
-                    size: 1000.0, // Large number to ensure we sell the full position
-                    limit_price: None,
-                    stop_price: None,
-                    timestamp: bar.timestamp,
-                });
+                orders.push(Order::new(
+                    OrderSide::Sell,
+                    OrderType::Market,
+                    1000.0, // Large number to ensure we sell the full position
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                ));
                 println!("SELL at {:.2} (MA: {:.2})", bar.close, ma);
             }
 

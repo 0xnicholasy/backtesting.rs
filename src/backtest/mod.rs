@@ -1,5 +1,8 @@
+use crate::order::{Order, OrderSide};
+use crate::position::Position;
 use crate::strategy::Strategy;
-use crate::types::{Order, OrderSide, Position, Trade, OHLCV};
+use crate::trade::Trade;
+use crate::types::OHLCV;
 use crate::Result;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -66,6 +69,8 @@ pub struct Backtest<'a> {
     equity_curve: Vec<(DateTime<Utc>, f64)>,
     trades: Vec<Trade>,
     orders: Vec<Order>,
+    current_bar_index: usize,
+    position_entry_bar: Option<usize>,
 }
 
 impl<'a> Backtest<'a> {
@@ -79,6 +84,8 @@ impl<'a> Backtest<'a> {
             equity_curve: Vec::new(),
             trades: Vec::new(),
             orders: Vec::new(),
+            current_bar_index: 0,
+            position_entry_bar: None,
         }
     }
 
@@ -88,6 +95,8 @@ impl<'a> Backtest<'a> {
 
         // Run backtest
         for (index, bar) in self.data.iter().enumerate() {
+            self.current_bar_index = index;
+            
             // Get orders from strategy
             let orders = strategy.next(bar, index)?;
 
@@ -96,6 +105,11 @@ impl<'a> Backtest<'a> {
                 self.process_order(order, bar)?;
             }
 
+            // Update position current price if we have one
+            if let Some(ref mut position) = self.current_position {
+                position.update_price(bar.close);
+            }
+            
             // Update equity curve
             let equity = self.calculate_equity(bar);
             self.equity_curve.push((bar.timestamp, equity));
@@ -112,14 +126,20 @@ impl<'a> Backtest<'a> {
         };
 
         match order.side {
-            OrderSide::Buy => self.open_position(order.size, price, bar.timestamp)?,
-            OrderSide::Sell => self.close_position(order.size, price, bar.timestamp)?,
+            OrderSide::Buy => self.open_position(order.size, price, bar.timestamp, bar.close)?,
+            OrderSide::Sell => self.close_position(order.size, price, bar)?,
         }
 
         Ok(())
     }
 
-    fn open_position(&mut self, size: f64, price: f64, timestamp: DateTime<Utc>) -> Result<()> {
+    fn open_position(
+        &mut self,
+        size: f64,
+        price: f64,
+        timestamp: DateTime<Utc>,
+        current_price: f64,
+    ) -> Result<()> {
         let cost = size * price * (1.0 + self.config.commission);
 
         if cost > self.cash {
@@ -134,39 +154,37 @@ impl<'a> Backtest<'a> {
             let total_size = position.size + size;
             position.entry_price = total_cost / total_size;
             position.size = total_size;
+            position.update_price(current_price);
         } else {
             // Create new position
-            self.current_position = Some(Position {
-                size,
-                entry_price: price,
-                entry_time: timestamp,
-                unrealized_pnl: 0.0,
-            });
+            let mut new_position = Position::new(size, price, timestamp);
+            new_position.update_price(current_price);
+            self.current_position = Some(new_position);
+            self.position_entry_bar = Some(self.current_bar_index);
         }
 
         Ok(())
     }
 
-    fn close_position(&mut self, size: f64, price: f64, timestamp: DateTime<Utc>) -> Result<()> {
+    fn close_position(&mut self, size: f64, price: f64, current_bar: &OHLCV) -> Result<()> {
         if let Some(ref mut position) = self.current_position {
             let close_size = size.min(position.size);
             let proceeds = close_size * price * (1.0 - self.config.commission);
-            let cost_basis = close_size * position.entry_price;
-            let pnl = proceeds - cost_basis;
+            let _cost_basis = close_size * position.entry_price;
 
             self.cash += proceeds;
 
             // Create trade record
-            let trade = Trade {
-                entry_time: position.entry_time,
-                exit_time: timestamp,
-                entry_price: position.entry_price,
-                exit_price: price,
-                size: close_size,
-                pnl,
-                pnl_pct: pnl / cost_basis,
-                duration: timestamp - position.entry_time,
-            };
+            let mut trade = Trade::new(
+                self.position_entry_bar.unwrap_or(0),
+                position.entry_price,
+                position.entry_time,
+                close_size,
+                None, // sl
+                None, // tp
+                None, // tag
+            );
+            trade.close(Some(self.current_bar_index), price, current_bar.timestamp);
 
             self.trades.push(trade);
 
@@ -174,6 +192,7 @@ impl<'a> Backtest<'a> {
             position.size -= close_size;
             if position.size <= 0.0 {
                 self.current_position = None;
+                self.position_entry_bar = None;
             }
         } else {
             // No position to close - this is expected behavior, just skip
@@ -182,12 +201,11 @@ impl<'a> Backtest<'a> {
         Ok(())
     }
 
-    fn calculate_equity(&self, bar: &OHLCV) -> f64 {
+    fn calculate_equity(&self, _bar: &OHLCV) -> f64 {
         let mut equity = self.cash;
 
         if let Some(ref position) = self.current_position {
-            let market_value = position.size * bar.close;
-            equity += market_value;
+            equity += position.value();
         }
 
         equity
@@ -210,8 +228,8 @@ impl<'a> Backtest<'a> {
             / self.data.first().unwrap().close;
 
         // Calculate basic trade statistics
-        let winning_trades: Vec<_> = self.trades.iter().filter(|t| t.pnl > 0.0).collect();
-        let losing_trades: Vec<_> = self.trades.iter().filter(|t| t.pnl < 0.0).collect();
+        let winning_trades: Vec<_> = self.trades.iter().filter(|t| t.pl() > 0.0).collect();
+        let losing_trades: Vec<_> = self.trades.iter().filter(|t| t.pl() < 0.0).collect();
 
         let win_rate = if self.trades.is_empty() {
             0.0
@@ -219,12 +237,12 @@ impl<'a> Backtest<'a> {
             winning_trades.len() as f64 / self.trades.len() as f64
         };
 
-        let best_trade = self.trades.iter().map(|t| t.pnl).fold(0.0, f64::max);
-        let worst_trade = self.trades.iter().map(|t| t.pnl).fold(0.0, f64::min);
+        let best_trade = self.trades.iter().map(|t| t.pl()).fold(0.0, f64::max);
+        let worst_trade = self.trades.iter().map(|t| t.pl()).fold(0.0, f64::min);
         let avg_trade = if self.trades.is_empty() {
             0.0
         } else {
-            self.trades.iter().map(|t| t.pnl).sum::<f64>() / self.trades.len() as f64
+            self.trades.iter().map(|t| t.pl()).sum::<f64>() / self.trades.len() as f64
         };
 
         // Calculate exposure time
@@ -262,8 +280,8 @@ impl<'a> Backtest<'a> {
         };
 
         // Calculate profit factor
-        let gross_profit: f64 = winning_trades.iter().map(|t| t.pnl).sum();
-        let gross_loss: f64 = losing_trades.iter().map(|t| t.pnl.abs()).sum();
+        let gross_profit: f64 = winning_trades.iter().map(|t| t.pl()).sum();
+        let gross_loss: f64 = losing_trades.iter().map(|t| t.pl().abs()).sum();
         let profit_factor = if gross_loss > 0.0 {
             gross_profit / gross_loss
         } else if gross_profit > 0.0 {
@@ -305,13 +323,13 @@ impl<'a> Backtest<'a> {
             max_trade_duration: self
                 .trades
                 .iter()
-                .map(|t| t.duration)
+                .map(|t| t.duration())
                 .max()
                 .unwrap_or(chrono::Duration::zero()),
             avg_trade_duration: if self.trades.is_empty() {
                 chrono::Duration::zero()
             } else {
-                let total_duration: chrono::Duration = self.trades.iter().map(|t| t.duration).sum();
+                let total_duration: chrono::Duration = self.trades.iter().map(|t| t.duration()).sum();
                 total_duration / self.trades.len() as i32
             },
             profit_factor,
@@ -337,7 +355,9 @@ impl<'a> Backtest<'a> {
                 position_start = trade.entry_time;
             } else {
                 // Position closed
-                exposed_days += (trade.exit_time - position_start).num_days();
+                if let Some(exit_time) = trade.exit_time {
+                    exposed_days += (exit_time - position_start).num_days();
+                }
                 in_position = false;
             }
         }
@@ -505,13 +525,13 @@ impl<'a> Backtest<'a> {
             return 0.0;
         }
 
-        let avg_trade = self.trades.iter().map(|t| t.pnl).sum::<f64>() / self.trades.len() as f64;
+        let avg_trade = self.trades.iter().map(|t| t.pl()).sum::<f64>() / self.trades.len() as f64;
 
         // Calculate standard deviation of trade P&L
         let variance = self
             .trades
             .iter()
-            .map(|t| (t.pnl - avg_trade).powi(2))
+            .map(|t| (t.pl() - avg_trade).powi(2))
             .sum::<f64>()
             / self.trades.len() as f64;
 

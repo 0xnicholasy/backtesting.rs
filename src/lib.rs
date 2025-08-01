@@ -8,6 +8,9 @@
 pub mod backtest;
 pub mod strategy;
 pub mod types;
+pub mod order;
+pub mod position;
+pub mod trade;
 pub mod indicators;
 pub mod data;
 
@@ -20,7 +23,10 @@ pub mod plotting;
 // Re-export main types for convenience
 pub use backtest::{Backtest, BacktestConfig, BacktestResults};
 pub use strategy::Strategy;
-pub use types::{Order, Position, Trade, OrderType, OrderSide};
+pub use order::{Order, OrderType, OrderSide, OrderStatus};
+pub use position::Position;
+pub use trade::Trade;
+pub use types::{OHLCV, DirectionalTrade, ProfitLoss, Closeable, Executable, StopManagement};
 
 /// Result type used throughout the library
 pub type Result<T> = std::result::Result<T, Box<dyn std::error::Error + Send + Sync>>;

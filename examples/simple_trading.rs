@@ -1,5 +1,6 @@
 use backtesting::plotting::{BacktestPlotter, PlotConfig};
-use backtesting::types::{Order, OrderSide, OrderType, OHLCV};
+use backtesting::{Order, OrderSide, OrderType};
+use backtesting::types::OHLCV;
 use backtesting::{Backtest, BacktestConfig, Strategy};
 use chrono::{TimeZone, Utc};
 
@@ -29,27 +30,31 @@ impl Strategy for SimpleTradingStrategy {
             self.position = true;
             println!("BUY at price: {:.2} (day {})", bar.close, index);
 
-            Ok(vec![Order {
-                side: OrderSide::Buy,
-                order_type: OrderType::Market,
-                size: 50.0,
-                limit_price: None,
-                stop_price: None,
-                timestamp: bar.timestamp,
-            }])
+            Ok(vec![Order::new(
+                OrderSide::Buy,
+                OrderType::Market,
+                50.0,
+                None,
+                None,
+                None,
+                None,
+                None,
+            )])
         } else if self.position && index % 20 == 0 {
             self.position = false;
             self.trade_count += 1;
             println!("SELL at price: {:.2} (day {})", bar.close, index);
 
-            Ok(vec![Order {
-                side: OrderSide::Sell,
-                order_type: OrderType::Market,
-                size: 50.0,
-                limit_price: None,
-                stop_price: None,
-                timestamp: bar.timestamp,
-            }])
+            Ok(vec![Order::new(
+                OrderSide::Sell,
+                OrderType::Market,
+                50.0,
+                None,
+                None,
+                None,
+                None,
+                None,
+            )])
         } else {
             Ok(vec![])
         }
