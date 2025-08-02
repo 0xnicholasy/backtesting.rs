@@ -1,8 +1,8 @@
-use chrono::{DateTime, Utc};
-use serde::{Deserialize, Serialize};
 use crate::position::Position;
 use crate::trade::Trade;
 use crate::types::{DirectionalTrade, Executable, StopManagement};
+use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum OrderType {
@@ -92,12 +92,21 @@ impl Order {
     }
 
     pub fn cancel(&mut self) {
-        if matches!(self.status, OrderStatus::Pending | OrderStatus::PartiallyFilled) {
+        if matches!(
+            self.status,
+            OrderStatus::Pending | OrderStatus::PartiallyFilled
+        ) {
             self.status = OrderStatus::Cancelled;
         }
     }
 
-    pub fn fill(&mut self, fill_size: f64, fill_price: f64, bar_index: usize, fill_time: DateTime<Utc>) -> Option<Trade> {
+    pub fn fill(
+        &mut self,
+        fill_size: f64,
+        fill_price: f64,
+        bar_index: usize,
+        fill_time: DateTime<Utc>,
+    ) -> Option<Trade> {
         if matches!(self.status, OrderStatus::Cancelled) {
             return None;
         }
@@ -115,20 +124,39 @@ impl Order {
             bar_index,
             fill_price,
             fill_time,
-            if self.is_long() { actual_fill_size } else { -actual_fill_size },
+            if self.is_long() {
+                actual_fill_size
+            } else {
+                -actual_fill_size
+            },
             self.sl,
             self.tp,
             self.tag.clone(),
         ))
     }
 
-    pub fn execute_to_position(&self, fill_price: f64, fill_time: DateTime<Utc>) -> Option<Position> {
+    pub fn execute_to_position(
+        &self,
+        fill_price: f64,
+        fill_time: DateTime<Utc>,
+    ) -> Option<Position> {
         if !self.is_filled() {
             return None;
         }
 
-        let position_size = if self.is_long() { self.size } else { -self.size };
-        Some(Position::with_stops(position_size, fill_price, fill_time, self.sl, self.tp, self.tag.clone()))
+        let position_size = if self.is_long() {
+            self.size
+        } else {
+            -self.size
+        };
+        Some(Position::with_stops(
+            position_size,
+            fill_price,
+            fill_time,
+            self.sl,
+            self.tp,
+            self.tag.clone(),
+        ))
     }
 }
 
@@ -150,7 +178,12 @@ impl Executable for Order {
     type Position = Position;
     type Trade = Trade;
 
-    fn execute(&mut self, fill_price: f64, fill_time: DateTime<Utc>, bar_index: usize) -> Option<Self::Trade> {
+    fn execute(
+        &mut self,
+        fill_price: f64,
+        fill_time: DateTime<Utc>,
+        bar_index: usize,
+    ) -> Option<Self::Trade> {
         self.fill(self.remaining_size(), fill_price, bar_index, fill_time)
     }
 

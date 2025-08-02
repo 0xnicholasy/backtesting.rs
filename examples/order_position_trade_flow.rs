@@ -1,5 +1,5 @@
-use backtesting::{Order, OrderType, OrderSide, OrderStatus};
-use backtesting::types::{DirectionalTrade, ProfitLoss, Executable, StopManagement};
+use backtesting::types::{DirectionalTrade, Executable, StopManagement};
+use backtesting::{Order, OrderSide, OrderType};
 use chrono::Utc;
 
 fn main() {
@@ -10,10 +10,10 @@ fn main() {
     let mut buy_order = Order::new(
         OrderSide::Buy,
         OrderType::Market,
-        1000.0, // Size
-        None,   // No limit price (market order)
-        None,   // No stop price
-        Some(95.0), // Stop loss at $95
+        1000.0,      // Size
+        None,        // No limit price (market order)
+        None,        // No stop price
+        Some(95.0),  // Stop loss at $95
         Some(115.0), // Take profit at $115
         Some("AAPL Long".to_string()),
     );
@@ -31,10 +31,10 @@ fn main() {
     println!("\n2. Executing Order at $100 to create Position");
     let entry_price = 100.0;
     let entry_time = Utc::now();
-    
+
     // First fill the order
     let _trade = buy_order.fill(buy_order.remaining_size(), entry_price, 0, entry_time);
-    
+
     if let Some(mut position) = buy_order.to_position(entry_price, entry_time) {
         println!("   Position Created:");
         println!("   - Size: {}", position.size());
@@ -45,7 +45,7 @@ fn main() {
 
         // Step 3: Simulate price movements
         println!("\n3. Simulating Price Movements");
-        
+
         // Price goes up to $105
         position.update_price(105.0);
         println!("   Price moves to $105.00:");
@@ -67,10 +67,13 @@ fn main() {
             println!("\n4. Take Profit Triggered - Closing Position");
             let exit_time = Utc::now();
             let closed_trade = position.close_all(115.0, exit_time, Some(1));
-            
+
             println!("   Trade Closed:");
             println!("   - Entry Price: ${:.2}", closed_trade.entry_price);
-            println!("   - Exit Price: ${:.2}", closed_trade.exit_price.unwrap_or(0.0));
+            println!(
+                "   - Exit Price: ${:.2}",
+                closed_trade.exit_price.unwrap_or(0.0)
+            );
             println!("   - Size: {}", closed_trade.size());
             println!("   - Is Long: {}", closed_trade.is_long());
             println!("   - Is Closed: {}", closed_trade.is_closed());

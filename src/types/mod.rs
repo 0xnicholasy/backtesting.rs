@@ -29,8 +29,10 @@ impl OHLCV {
             volume,
         }
     }
+}
 
-    pub fn default() -> Self {
+impl Default for OHLCV {
+    fn default() -> Self {
         Self {
             timestamp: Utc::now(),
             open: 0.0,
@@ -58,7 +60,7 @@ pub trait ProfitLoss {
 /// Trait for items that can be closed or exited
 pub trait Closeable {
     type Output;
-    
+
     fn close(&mut self, exit_price: f64, exit_time: DateTime<Utc>) -> Self::Output;
 }
 
@@ -66,8 +68,13 @@ pub trait Closeable {
 pub trait Executable {
     type Position;
     type Trade;
-    
-    fn execute(&mut self, fill_price: f64, fill_time: DateTime<Utc>, bar_index: usize) -> Option<Self::Trade>;
+
+    fn execute(
+        &mut self,
+        fill_price: f64,
+        fill_time: DateTime<Utc>,
+        bar_index: usize,
+    ) -> Option<Self::Trade>;
     fn to_position(&self, fill_price: f64, fill_time: DateTime<Utc>) -> Option<Self::Position>;
 }
 
