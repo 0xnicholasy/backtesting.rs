@@ -71,7 +71,7 @@ pub struct Backtest<'a> {
     cash: f64,
     equity_curve: Vec<(DateTime<Utc>, f64)>,
     trades: Vec<Trade>,
-    // orders: Vec<Order>,
+    orders: Vec<Order>,
     current_bar_index: usize,
     position_entry_bar: Option<usize>,
 }
@@ -86,7 +86,7 @@ impl<'a> Backtest<'a> {
             cash,
             equity_curve: Vec::new(),
             trades: Vec::new(),
-            // orders: Vec::new(),
+            orders: Vec::new(),
             current_bar_index: 0,
             position_entry_bar: None,
         }
@@ -274,7 +274,8 @@ impl<'a> Backtest<'a> {
             0.0
         };
 
-        let sortino_ratio = Calculations::calculate_sortino_ratio(&self.equity_curve, return_ann, risk_free_rate);
+        let sortino_ratio =
+            Calculations::calculate_sortino_ratio(&self.equity_curve, return_ann, risk_free_rate);
 
         let calmar_ratio = if max_drawdown.abs() > 0.0 {
             return_ann / max_drawdown.abs()
@@ -341,5 +342,4 @@ impl<'a> Backtest<'a> {
             sqn,
         })
     }
-
 }
