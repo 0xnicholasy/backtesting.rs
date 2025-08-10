@@ -49,7 +49,7 @@ impl Calculations {
         }
 
         // Calculate daily returns
-        let mut returns = Vec::new();
+        let mut returns = Vec::with_capacity(equity_curve.len() - 1);
         for i in 1..equity_curve.len() {
             let prev_equity = equity_curve[i - 1].1;
             let curr_equity = equity_curve[i].1;
@@ -89,8 +89,8 @@ impl Calculations {
         let mut drawdown_start = equity_curve[0].0;
         let mut max_dd_duration = chrono::Duration::zero();
         let mut current_dd_duration = chrono::Duration::zero();
-        let mut drawdowns = Vec::new();
-        let mut dd_durations = Vec::new();
+        let mut drawdowns = Vec::with_capacity(equity_curve.len() / 4);
+        let mut dd_durations = Vec::with_capacity(equity_curve.len() / 4);
 
         for (timestamp, equity) in equity_curve {
             if *equity > peak_equity {
@@ -147,7 +147,7 @@ impl Calculations {
         }
 
         // Calculate daily returns
-        let mut returns = Vec::new();
+        let mut returns = Vec::with_capacity(equity_curve.len() - 1);
         for i in 1..equity_curve.len() {
             let prev_equity = equity_curve[i - 1].1;
             let curr_equity = equity_curve[i].1;

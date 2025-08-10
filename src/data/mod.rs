@@ -42,7 +42,7 @@ where
     D: Deserializer<'de>,
 {
     let s = String::deserialize(deserializer)?;
-    let cleaned = s.replace(",", "");
+    let cleaned: String = s.chars().filter(|&c| c != ',').collect();
     cleaned.parse().map_err(serde::de::Error::custom)
 }
 
@@ -54,7 +54,7 @@ where
     let s: Option<String> = Option::deserialize(deserializer)?;
     match s {
         Some(s) if !s.is_empty() => {
-            let cleaned = s.replace(",", "");
+            let cleaned: String = s.chars().filter(|&c| c != ',').collect();
             cleaned.parse().map(Some).map_err(serde::de::Error::custom)
         }
         _ => Ok(None),
@@ -75,7 +75,7 @@ impl DataLoader {
     /// use backtesting::data::DataLoader;
     /// 
     /// // Loads data/AAPL.csv
-    /// let data = DataLoader::load_from_csv("AAPL")?;
+    /// let data = DataLoader::load_from_csv("AAPL").unwrap();
     /// ```
     pub fn load_from_csv(dataset_name: &str) -> Result<Vec<OHLCV>> {
         let file_path = format!("data/{}.csv", dataset_name);
@@ -98,11 +98,17 @@ impl DataLoader {
     /// - US format: 01/01/2023
     /// - European format: 01-01-2023
     pub fn load_from_file<P: AsRef<Path>>(file_path: P) -> Result<Vec<OHLCV>> {
+        // Get file size for capacity estimation
+        let file_size = std::fs::metadata(file_path.as_ref())
+            .map(|m| m.len())
+            .unwrap_or(0) as usize;
+        let estimated_rows = if file_size > 0 { file_size / 50 } else { 100 }; // Rough estimate: ~50 bytes per row
+        
         let file = File::open(file_path.as_ref())
             .map_err(|e| format!("Failed to open file '{}': {}", file_path.as_ref().display(), e))?;
         
         let mut reader = Reader::from_reader(file);
-        let mut data = Vec::new();
+        let mut data = Vec::with_capacity(estimated_rows);
         
         for (line_num, result) in reader.deserialize::<OHLCVRecord>().enumerate() {
             let record = result

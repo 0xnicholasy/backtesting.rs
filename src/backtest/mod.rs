@@ -71,22 +71,27 @@ pub struct Backtest<'a> {
     cash: f64,
     equity_curve: Vec<(DateTime<Utc>, f64)>,
     trades: Vec<Trade>,
-    orders: Vec<Order>,
     current_bar_index: usize,
     position_entry_bar: Option<usize>,
 }
 
 impl<'a> Backtest<'a> {
-    pub fn new(data: &'a Vec<OHLCV>, config: BacktestConfig) -> Self {
+    pub fn new(data: &'a [OHLCV], config: BacktestConfig) -> Self {
         let cash = config.initial_cash;
+        
+        let mut equity_curve = Vec::new();
+        let mut trades = Vec::new();
+        
+        equity_curve.reserve(data.len());
+        trades.reserve(data.len() / 10);
+        
         Self {
             config,
             data,
             current_position: None,
             cash,
-            equity_curve: Vec::new(),
-            trades: Vec::new(),
-            orders: Vec::new(),
+            equity_curve,
+            trades,
             current_bar_index: 0,
             position_entry_bar: None,
         }
@@ -231,13 +236,10 @@ impl<'a> Backtest<'a> {
             / self.data.first().unwrap().close;
 
         // Calculate basic trade statistics
-        let winning_trades: Vec<_> = self.trades.iter().filter(|t| t.pl() > 0.0).collect();
-        let losing_trades: Vec<_> = self.trades.iter().filter(|t| t.pl() < 0.0).collect();
-
         let win_rate = if self.trades.is_empty() {
             0.0
         } else {
-            winning_trades.len() as f64 / self.trades.len() as f64
+            self.trades.iter().filter(|t| t.pl() > 0.0).count() as f64 / self.trades.len() as f64
         };
 
         let best_trade = self.trades.iter().map(|t| t.pl()).fold(0.0, f64::max);
@@ -284,8 +286,14 @@ impl<'a> Backtest<'a> {
         };
 
         // Calculate profit factor
-        let gross_profit: f64 = winning_trades.iter().map(|t| t.pl()).sum();
-        let gross_loss: f64 = losing_trades.iter().map(|t| t.pl().abs()).sum();
+        let gross_profit: f64 = self.trades.iter()
+            .filter(|t| t.pl() > 0.0)
+            .map(|t| t.pl())
+            .sum();
+        let gross_loss: f64 = self.trades.iter()
+            .filter(|t| t.pl() < 0.0)
+            .map(|t| t.pl().abs())
+            .sum();
         let profit_factor = if gross_loss > 0.0 {
             gross_profit / gross_loss
         } else if gross_profit > 0.0 {

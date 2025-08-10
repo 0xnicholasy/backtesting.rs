@@ -34,7 +34,7 @@ impl Strategy for SMACrossover {
         // Check if we have valid signals
         match (fast_sma, slow_sma) {
             (Some(fast), Some(slow)) => {
-                let mut orders = Vec::new();
+                let mut orders = Vec::with_capacity(1);
 
                 // Buy signal: fast SMA crosses above slow SMA
                 if fast > slow && !self.position {
@@ -42,7 +42,7 @@ impl Strategy for SMACrossover {
                     orders.push(Order::new(
                         OrderSide::Buy,
                         OrderType::Market,
-                        100.0,
+                        50.0,
                         None,
                         None,
                         None,
@@ -60,7 +60,7 @@ impl Strategy for SMACrossover {
                     orders.push(Order::new(
                         OrderSide::Sell,
                         OrderType::Market,
-                        100.0,
+                        50.0,
                         None,
                         None,
                         None,

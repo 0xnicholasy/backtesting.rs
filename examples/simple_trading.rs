@@ -62,7 +62,7 @@ impl Strategy for SimpleTradingStrategy {
 }
 
 fn create_sample_data() -> Vec<OHLCV> {
-    let mut data = Vec::new();
+    let mut data = Vec::with_capacity(300);
     let start_date = Utc.with_ymd_and_hms(2023, 1, 1, 0, 0, 0).unwrap();
 
     for i in 0..300 {
